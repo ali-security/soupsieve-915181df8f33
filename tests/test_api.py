@@ -590,6 +590,76 @@ class TestInvalid(util.TestCase):
         with self.assertRaises(TypeError):
             sv.filter('div', "not a tag", flags=flags)
 
+    def test_excessive_selectors(self):
+        """Test excessive selectors."""
+
+        # Build a large selector string: "a,a,a,...,a"
+        count = 10000
+        selector = ",".join("a" for _ in range(count))
+
+        # Compile the selector
+        with self.assertRaises(ValueError):
+            sv.compile(selector)
+
+    def test_excessive_group_selectors(self):
+        """Test excessive selectors in `:is()` and `:where()`."""
+
+        count = 10000
+        selector = ':is({})'.format("," * count)
+
+        # Compile the selector
+        with self.assertRaises(ValueError):
+            sv.compile(selector)
+
+        selector = ':where({})'.format("," * count)
+
+        # Compile the selector
+        with self.assertRaises(ValueError):
+            sv.compile(selector)
+
+    def test_excessive_relative_selectors(self):
+        """Test excessive selectors in `:has()`."""
+
+        count = 10000
+
+        # Empty slots in `:has()` are not forgiven, so this must fail on the very first
+        # comma instead of allocating a selector object for each of them.
+        with self.assertRaises(sv.SelectorSyntaxError) as cm:
+            sv.compile('div:has({})'.format("," * count))
+        self.assertIn("must have a selector before it", str(cm.exception))
+        self.assertEqual(cm.exception.col, len('div:has(') + 1)
+
+        # A large, valid relative selector list is bound by the selector limit.
+        with self.assertRaises(ValueError):
+            sv.compile('div:has({})'.format(",".join("a" for _ in range(count))))
+
+    def test_excessive_custom_selectors(self):
+        """Test excessive custom selectors."""
+
+        # Build a large selector string: "a,a,a,...,a"
+        count = 10000
+        selector = ",".join("a" for _ in range(count))
+
+        # Compile the selector
+        with self.assertRaises(ValueError):
+            sv.compile('div:--custom', custom={':--custom': selector})
+
+    def test_excessive_custom_and_normal_selectors(self):
+        """Test excessive custom and normal selectors."""
+
+        count = 5000
+        selector = ",".join("a" for _ in range(count))
+
+        # Compile the selector
+        with self.assertRaises(ValueError):
+            sv.compile(':is({}):--custom'.format(selector), custom={':--custom': selector})
+
+    def test_selector_limit_boundary(self):
+        """Test that selectors under the limit still compile."""
+
+        selector = ",".join("a" for _ in range(sv.cp.SELECTOR_LIMIT))
+        self.assertEqual(len(sv.compile(selector).selectors), sv.cp.SELECTOR_LIMIT)
+
 
 class TestSyntaxErrorReporting(util.TestCase):
     """Test reporting of syntax errors."""

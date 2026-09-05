@@ -1,4 +1,5 @@
 """Test is selectors."""
+import soupsieve as sv
 from .. import util
 from soupsieve import SelectorSyntaxError
 
@@ -53,6 +54,12 @@ class TestIs(util.TestCase):
             ["1", "2"],
             flags=util.HTML
         )
+
+    def test_is_empty_slots_not_allocated(self):
+        """Test that forgiven, empty slots do not allocate a selector each."""
+
+        # Empty slots are simply dropped, so only the two real selectors are stored.
+        self.assertEqual(len(sv.compile(':is(span,{},a)'.format(',' * 1000)).selectors[0].selectors[0]), 2)
 
     def test_is_empty(self):
         """Test empty `:is()` selector list."""
